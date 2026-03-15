@@ -2,6 +2,7 @@ package commenttree_test
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"testing"
 	"time"
@@ -32,6 +33,37 @@ func TestRepositoryCreateComment(t *testing.T) {
 		if comment.ID == 0 {
 			t.Fatal("expected inserted comment id to be set")
 		}
+
+		path, depth := fetchCommentPathDepth(t, db, comment.ID)
+		if path != "/" {
+			t.Fatalf("expected default path /, got %s", path)
+		}
+		if depth != 0 {
+			t.Fatalf("expected default depth 0, got %d", depth)
+		}
+	})
+
+	t.Run("コメント作成_子コメントでもmaterialized_pathを更新しない", func(t *testing.T) {
+		parentID := int64(1)
+		comment := &commenttree.Comment{
+			PostID:    1,
+			ParentID:  &parentID,
+			Body:      "new child comment",
+			CreatedAt: time.Date(2026, 1, 1, 10, 5, 30, 0, time.UTC),
+		}
+
+		err := repo.CreateComment(context.Background(), comment)
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+
+		path, depth := fetchCommentPathDepth(t, db, comment.ID)
+		if path != "/" {
+			t.Fatalf("expected default path /, got %s", path)
+		}
+		if depth != 0 {
+			t.Fatalf("expected default depth 0, got %d", depth)
+		}
 	})
 
 	t.Run("コメント作成_親コメント不正", func(t *testing.T) {
@@ -48,6 +80,19 @@ func TestRepositoryCreateComment(t *testing.T) {
 			t.Fatalf("expected ErrParentNotFound, got %v", err)
 		}
 	})
+}
+
+func fetchCommentPathDepth(t *testing.T, db *sql.DB, commentID int64) (string, int) {
+	t.Helper()
+
+	var (
+		path  string
+		depth int
+	)
+	if err := db.QueryRow("SELECT path, depth FROM comments WHERE id = ?", commentID).Scan(&path, &depth); err != nil {
+		t.Fatalf("expected comment row %d, got %v", commentID, err)
+	}
+	return path, depth
 }
 
 func TestRepositoryGetRootCommentsByPostID(t *testing.T) {

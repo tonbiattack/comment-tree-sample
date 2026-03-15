@@ -28,36 +28,26 @@ func (r *Repository) CreateComment(ctx context.Context, comment *Comment) error 
 		return errors.New("comment is nil")
 	}
 
-	comment.Path = "/"
-	comment.Depth = 0
 	if comment.ParentID != nil {
-		var (
-			count       int
-			parentPath  string
-			parentDepth int
-		)
+		var count int
 		if err := r.db.QueryRowContext(
 			ctx,
-			`SELECT COUNT(*), COALESCE(MAX(path), ''), COALESCE(MAX(depth), 0) FROM comments WHERE id = ? AND post_id = ?`,
+			`SELECT COUNT(*) FROM comments WHERE id = ? AND post_id = ?`,
 			*comment.ParentID,
 			comment.PostID,
-		).Scan(&count, &parentPath, &parentDepth); err != nil {
+		).Scan(&count); err != nil {
 			return fmt.Errorf("check parent comment: %w", err)
 		}
 		if count == 0 {
 			return ErrParentNotFound
 		}
-		comment.Path = parentPath
-		comment.Depth = parentDepth + 1
 	}
 
 	result, err := r.db.ExecContext(
 		ctx,
-		`INSERT INTO comments (post_id, parent_id, path, depth, body, created_at) VALUES (?, ?, ?, ?, ?, ?)`,
+		`INSERT INTO comments (post_id, parent_id, body, created_at) VALUES (?, ?, ?, ?)`,
 		comment.PostID,
 		comment.ParentID,
-		comment.Path,
-		comment.Depth,
 		comment.Body,
 		comment.CreatedAt,
 	)
@@ -71,15 +61,6 @@ func (r *Repository) CreateComment(ctx context.Context, comment *Comment) error 
 	}
 
 	comment.ID = id
-	comment.Path = fmt.Sprintf("%s%d/", comment.Path, comment.ID)
-	if _, err := r.db.ExecContext(
-		ctx,
-		`UPDATE comments SET path = ? WHERE id = ?`,
-		comment.Path,
-		comment.ID,
-	); err != nil {
-		return fmt.Errorf("update comment path: %w", err)
-	}
 	return nil
 }
 
