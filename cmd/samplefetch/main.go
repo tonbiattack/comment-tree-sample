@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
-	"os"
 	"time"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -13,11 +12,13 @@ import (
 	"private-comment-tree-sample/internal/closuretree"
 	"private-comment-tree-sample/internal/commentreport"
 	"private-comment-tree-sample/internal/commenttree"
+	"private-comment-tree-sample/internal/mysqlconn"
 	"private-comment-tree-sample/internal/pathtree"
 )
 
 func main() {
-	db, err := sql.Open("mysql", dsnFromEnv())
+	cfg := mysqlconn.Resolve(".")
+	db, err := sql.Open("mysql", cfg.DSN(false))
 	if err != nil {
 		log.Fatalf("open mysql: %v", err)
 	}
@@ -164,21 +165,4 @@ func printNodes(nodes []*commenttree.CommentNode, depth int) {
 		fmt.Printf("%s- id=%d body=%s\n", prefix, node.Comment.ID, node.Comment.Body)
 		printNodes(node.Children, depth+1)
 	}
-}
-
-func dsnFromEnv() string {
-	host := envOrDefault("MYSQL_HOST", "127.0.0.1")
-	port := envOrDefault("MYSQL_HOST_PORT", "33306")
-	database := envOrDefault("MYSQL_DATABASE", "comment_tree")
-	user := envOrDefault("MYSQL_USER", "comment_user")
-	password := envOrDefault("MYSQL_PASSWORD", "comment_pass")
-
-	return fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true", user, password, host, port, database)
-}
-
-func envOrDefault(key, fallback string) string {
-	if value := os.Getenv(key); value != "" {
-		return value
-	}
-	return fallback
 }

@@ -3,7 +3,6 @@ package testdb
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -11,18 +10,16 @@ import (
 	"time"
 
 	_ "github.com/go-sql-driver/mysql"
+
+	"private-comment-tree-sample/internal/mysqlconn"
 )
 
 func OpenMySQL(t *testing.T) *sql.DB {
 	t.Helper()
 
-	host := envOrDefault("MYSQL_HOST", "127.0.0.1")
-	port := envOrDefault("MYSQL_HOST_PORT", "33306")
-	database := envOrDefault("MYSQL_DATABASE", "comment_tree")
-	user := envOrDefault("MYSQL_USER", "comment_user")
-	password := envOrDefault("MYSQL_PASSWORD", "comment_pass")
-
-	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true&multiStatements=true", user, password, host, port, database)
+	root := repoRoot(t)
+	cfg := mysqlconn.Resolve(root)
+	dsn := cfg.DSN(true)
 	db, err := sql.Open("mysql", dsn)
 	if err != nil {
 		t.Fatalf("failed to open mysql: %v", err)
