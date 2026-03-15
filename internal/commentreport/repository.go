@@ -27,6 +27,13 @@ type RootThreadSummary struct {
 	LatestReplyAt    time.Time
 }
 
+type PostActivitySummary struct {
+	PostID            int64
+	PostTitle         string
+	TotalCommentCount int
+	LatestCommentAt   time.Time
+}
+
 type Repository struct {
 	db      *sql.DB
 	sqlRoot string
@@ -102,6 +109,52 @@ func (r *Repository) ListRootThreadSummaries(ctx context.Context, postID int64) 
 	return summaries, nil
 }
 
+func (r *Repository) ListUnansweredRootThreads(ctx context.Context, postID int64) ([]RootThreadSummary, error) {
+	query, err := r.loadQuery("unanswered_root_threads.sql")
+	if err != nil {
+		return nil, err
+	}
+	return r.queryRootThreadSummaries(ctx, query, postID)
+}
+
+func (r *Repository) ListPostsByRecentActivity(ctx context.Context) ([]PostActivitySummary, error) {
+	query, err := r.loadQuery("posts_recent_activity.sql")
+	if err != nil {
+		return nil, err
+	}
+
+	rows, err := r.db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("query posts by recent activity: %w", err)
+	}
+	defer rows.Close()
+
+	var posts []PostActivitySummary
+	for rows.Next() {
+		var (
+			summary PostActivitySummary
+			latest  sql.NullTime
+		)
+		if err := rows.Scan(
+			&summary.PostID,
+			&summary.PostTitle,
+			&summary.TotalCommentCount,
+			&latest,
+		); err != nil {
+			return nil, fmt.Errorf("scan post activity summary: %w", err)
+		}
+		if latest.Valid {
+			summary.LatestCommentAt = latest.Time
+		}
+		posts = append(posts, summary)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate posts by recent activity: %w", err)
+	}
+
+	return posts, nil
+}
+
 func (r *Repository) loadQuery(name string) (string, error) {
 	path := filepath.Join(r.sqlRoot, name)
 	query, err := os.ReadFile(path)
@@ -109,4 +162,39 @@ func (r *Repository) loadQuery(name string) (string, error) {
 		return "", fmt.Errorf("read sql file %s: %w", path, err)
 	}
 	return string(query), nil
+}
+
+func (r *Repository) queryRootThreadSummaries(ctx context.Context, query string, args ...any) ([]RootThreadSummary, error) {
+	rows, err := r.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("query root thread summaries: %w", err)
+	}
+	defer rows.Close()
+
+	var summaries []RootThreadSummary
+	for rows.Next() {
+		var (
+			summary RootThreadSummary
+			latest  sql.NullTime
+		)
+		if err := rows.Scan(
+			&summary.RootCommentID,
+			&summary.RootBody,
+			&summary.DirectReplyCount,
+			&summary.DescendantCount,
+			&summary.MaxDepth,
+			&latest,
+		); err != nil {
+			return nil, fmt.Errorf("scan root thread summary: %w", err)
+		}
+		if latest.Valid {
+			summary.LatestReplyAt = latest.Time
+		}
+		summaries = append(summaries, summary)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate root thread summaries: %w", err)
+	}
+
+	return summaries, nil
 }

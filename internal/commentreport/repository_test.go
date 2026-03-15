@@ -83,3 +83,67 @@ func TestRepositoryListRootThreadSummaries(t *testing.T) {
 		}
 	})
 }
+
+func TestRepositoryListUnansweredRootThreads(t *testing.T) {
+	testdb.LockDatabase(t)
+	db := testdb.OpenMySQL(t)
+	defer db.Close()
+	testdb.ResetSchema(t, db)
+
+	repo := commentreport.NewRepository(db, testdb.SQLQuerySubDir(t, "business"))
+
+	t.Run("未返信ルートスレッド取得_直属返信がないルートだけ返す", func(t *testing.T) {
+		summaries, err := repo.ListUnansweredRootThreads(context.Background(), 2)
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+		if len(summaries) != 1 {
+			t.Fatalf("expected 1 summary, got %d", len(summaries))
+		}
+
+		summary := summaries[0]
+		if summary.RootCommentID != 5 {
+			t.Fatalf("expected root comment id 5, got %d", summary.RootCommentID)
+		}
+		if summary.RootBody != "comment5" {
+			t.Fatalf("expected root body comment5, got %s", summary.RootBody)
+		}
+		if summary.DirectReplyCount != 0 {
+			t.Fatalf("expected 0 direct replies, got %d", summary.DirectReplyCount)
+		}
+		if summary.DescendantCount != 0 {
+			t.Fatalf("expected 0 descendants, got %d", summary.DescendantCount)
+		}
+	})
+}
+
+func TestRepositoryListPostsByRecentActivity(t *testing.T) {
+	testdb.LockDatabase(t)
+	db := testdb.OpenMySQL(t)
+	defer db.Close()
+	testdb.ResetSchema(t, db)
+
+	repo := commentreport.NewRepository(db, testdb.SQLQuerySubDir(t, "business"))
+
+	t.Run("投稿一覧取得_最新活動順で並べる", func(t *testing.T) {
+		posts, err := repo.ListPostsByRecentActivity(context.Background())
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+		if len(posts) != 3 {
+			t.Fatalf("expected 3 posts, got %d", len(posts))
+		}
+		if posts[0].PostID != 2 || posts[1].PostID != 1 || posts[2].PostID != 3 {
+			t.Fatalf("expected post ids [2 1 3], got [%d %d %d]", posts[0].PostID, posts[1].PostID, posts[2].PostID)
+		}
+		if posts[0].TotalCommentCount != 1 {
+			t.Fatalf("expected post 2 total comments 1, got %d", posts[0].TotalCommentCount)
+		}
+		if !posts[0].LatestCommentAt.Equal(time.Date(2026, 1, 1, 11, 0, 0, 0, time.UTC)) {
+			t.Fatalf("unexpected latest comment at for post 2: %v", posts[0].LatestCommentAt)
+		}
+		if !posts[2].LatestCommentAt.IsZero() {
+			t.Fatalf("expected zero latest comment for post 3, got %v", posts[2].LatestCommentAt)
+		}
+	})
+}

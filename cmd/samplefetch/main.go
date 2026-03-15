@@ -121,6 +121,37 @@ func main() {
 			summary.LatestReplyAt.Format(time.RFC3339),
 		)
 	}
+
+	unansweredThreads, err := reportRepo.ListUnansweredRootThreads(context.Background(), 2)
+	if err != nil {
+		log.Fatalf("list unanswered root threads: %v", err)
+	}
+	fmt.Println("business unanswered root threads for post 2:")
+	for _, summary := range unansweredThreads {
+		fmt.Printf("- root_id=%d direct=%d descendants=%d\n",
+			summary.RootCommentID,
+			summary.DirectReplyCount,
+			summary.DescendantCount,
+		)
+	}
+
+	postsByActivity, err := reportRepo.ListPostsByRecentActivity(context.Background())
+	if err != nil {
+		log.Fatalf("list posts by recent activity: %v", err)
+	}
+	fmt.Println("business posts by recent activity:")
+	for _, post := range postsByActivity {
+		latest := "-"
+		if !post.LatestCommentAt.IsZero() {
+			latest = post.LatestCommentAt.Format(time.RFC3339)
+		}
+		fmt.Printf("- post_id=%d title=%s total=%d latest=%s\n",
+			post.PostID,
+			post.PostTitle,
+			post.TotalCommentCount,
+			latest,
+		)
+	}
 }
 
 func printNodes(nodes []*commenttree.CommentNode, depth int) {
