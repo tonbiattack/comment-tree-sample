@@ -1,5 +1,3 @@
-# private-comment-tree-sample
-
 MySQL 8 を Docker で起動できる最小構成を追加しています。ホスト側ポートは競合を避けるため `3306` 固定ではなく、既定で `33306` を使います。
 
 3方式の比較資料は `docs/tree-model-comparison.md` を参照してください。
