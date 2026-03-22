@@ -37,6 +37,7 @@
 --     id=1(depth=0), id=2(depth=1), id=3(depth=1), id=4(depth=2)
 --   ORDER BY cc.depth, c.created_at, c.id → 1, 2, 3, 4
 -- ============================================================
+-- 閉包テーブルから子孫IDを引き、その実体を comments から取る
 SELECT
     c.id,
     c.post_id,

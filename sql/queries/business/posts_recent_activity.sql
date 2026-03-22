@@ -46,6 +46,7 @@
 --   PostC(id=3): latest_comment_at=NULL, total=0
 --   ORDER BY: PostB → PostA → PostC（NULL は末尾）
 -- ============================================================
+-- 投稿ごとのコメント件数と最終活動日時を集計する
 SELECT
     p.id AS post_id,
     p.title AS post_title,
@@ -60,6 +61,7 @@ LEFT JOIN comments c
 GROUP BY
     p.id,
     p.title
+-- コメントがある投稿を先に出し、その中では最新活動順に並べる
 ORDER BY
     -- [1] NULL（コメントなし）を末尾に送る: IS NULL = 1 (true) は ASC で後ろになる
     latest_comment_at IS NULL,

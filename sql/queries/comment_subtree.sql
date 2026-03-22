@@ -65,6 +65,7 @@ WITH RECURSIVE comment_tree AS (
 )
 -- depth は内部計算用なので外部 SELECT には含めない
 -- （Go 側の queryComments のスキャン列と一致させるため）
+-- CTE で集めたコメントをそのまま返す
 SELECT
     id,
     post_id,
